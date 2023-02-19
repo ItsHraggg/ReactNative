@@ -35,7 +35,7 @@ const App: () => Node = () => {
   const [High, setHigh] = useState(true);
   const [Device, setDevice] = useState(null);
   const [DeviceId, setDeviceId] = useState(null);
-  const [NotConnectedDialog, setNotConnectedDialog] = useState(true);
+  const [NotConnectedDialog, setNotConnectedDialog] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [OverfillDialog, setOverfillDialog] = useState(null);
   const [PreviousState, setPreviousState] = useState(null);
@@ -140,7 +140,8 @@ const App: () => Node = () => {
         setDeviceId(connectedDevice.id);
         setIsConnected(true);
         setDevice(connectedDevice);
-        setNotConnectedDialog(false)
+        setNotConnectedDialog(false);
+        setShowDialog(false);
       }
       await AsyncStorage.setItem(
         'pairedDevices',
@@ -149,30 +150,32 @@ const App: () => Node = () => {
       console.log(AsyncStorage.getItem('pairedDevices'));
     } catch (error) {
       console.error(error);
-    } finally {
-      console.log("GGGGGGGG");
-      setShowDialog(false);
     }
   };
 
   const handleScan = async () => {
-    await manager.startDeviceScan(
-        null,
-        null,
-        (error, device) => {
-          if (error) {
-            console.error(error);
-          }
-          if (device.name) {
-            if (device.name[0] === 'H' || device.name[0] === 'B') {
-              setDevices(prevDevices => [...prevDevices.filter(dev => dev.id !== device.id), device]);
-              console.log(devices);
-            }
-          }
-        },
-      );
-  };
+          await manager.startDeviceScan(
+              null,
+              null,
+              (error, device) => {
+                  if (error) {
+                      console.error(error);
+                  }
+                  if (device) {
+                      if (device.name) {
+                          if (device.name[0] === 'H' || device.name[0] === 'B') {
+                              setDevices(prevDevices => [...prevDevices.filter(dev => dev.id !== device.id), device]);
+                              console.log(devices);
+                          }
+                      }
+                  }
+              }
+          );
+      };
 
+  React.useEffect(() => {
+      setShowDialog(false)
+  }, [!NotConnectedDialog])
   // React.useEffect(() => {
   //   (async () => {
   //     try {
@@ -489,26 +492,28 @@ const App: () => Node = () => {
     }, true);
   };
 
-  const noConnectionAlert = useCallback(() => {
-    if (NotConnectedDialog) {
-      Alert.alert(
-          'Bluetooth is off',
-          'Please turn on bluetooth to use this app',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                if (Platform.OS === 'android') {
-                  manager.enable();
-                } else if (Platform.OS === 'ios') {
-                  // Linking.openURL('App-Prefs:root=Bluetooth');
-                }
-              },
-            },
-          ],
-      )
-    }
-  }, [NotConnectedDialog])
+
+
+  const noConnectionAlert = () => {
+      if (NotConnectedDialog) {
+          Alert.alert(
+              'Bluetooth is off',
+              'Please turn on bluetooth to use this app',
+              [
+                  {
+                      text: 'OK',
+                      onPress: () => {
+                          if (Platform.OS === 'android') {
+                              manager.enable();
+                          } else if (Platform.OS === 'ios') {
+                              // Linking.openURL('App-Prefs:root=Bluetooth');
+                          }
+                      },
+                  },
+              ],
+          )
+      }
+  }
 
   // const seeChange = () => {
   //   if (manager.isDeviceConnected(DeviceId)) {
@@ -557,7 +562,11 @@ const App: () => Node = () => {
 
   React.useEffect(() => {
     CheckState();
-  });
+  }, [NotConnectedDialog]);
+
+  React.useEffect(() => {
+    console.log(showDialog);
+  }, [showDialog]);
 
   React.useEffect(() => {
     setPreviousState(isConnected);
@@ -596,15 +605,22 @@ const App: () => Node = () => {
           {/*</View>*/}
 
           <Modal transparent={false} visible={showDialog}>
-              <Text style={{left: 30, top: 50}}>Scanning for devices... {showDialog}</Text>
-            <Button title={"CLOSE"} onPress={() => setShowDialog(false)}/>
+              <Text style={{left: 30, top: 50}}>Scanning for devices...</Text>
               <ScrollView style={{width: '100%'}}>
                 {devices.map(device => (
                   <View key={device.id} style={{marginVertical: 10}}>
+                    <Button
+                        title="CLOSE THIS"
+                        onPress={() =>
+                            setShowDialog(false)
+                        }
+                    />
                     <Text>{device.name}</Text>
                     <Button
                       title="Connect"
-                      onPress={() => handleConnect(device)}
+                      onPress={() =>
+                          handleConnect(device)
+                    }
                     />
                   </View>
                 ))}
